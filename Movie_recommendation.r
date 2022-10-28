@@ -5,7 +5,7 @@ library(data.table)
 library(reshape2)
 
 # Retrieve and display data
-setwd('d:\\New folder (2)\\IMDB-Dataset')
+setwd('d:\\Movie_recommendation\\IMDB-Dataset')
 movie_data <- read.csv("movies.csv", stringsAsFactors=FALSE)
 rating_data <- read.csv("ratings.csv")
 
