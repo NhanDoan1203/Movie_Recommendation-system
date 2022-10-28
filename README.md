@@ -6,6 +6,7 @@ MAIN DATA:
 
 + ratings.csv (more than 100000 ratings)
 + movies.csv (more than 10000 movies)
+
 MAIN LIBRARY
 
 + library(recommenderlab)
