@@ -1,0 +1,418 @@
+---
+title: "Movie_Recommendation"
+author: "Nhan Doan"
+date: "05/25/2023"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, echo=FALSE, message = FALSE, results = FALSE, warning=FALSE}
+# library load statements here- remember, no install statements.
+# some useful libraries you may find useful:
+library(knitr) # for rendering tables with the kable function.
+library(dplyr)
+library(recommenderlab)
+library(ggplot2)
+library(data.table)
+library(reshape2)
+library(NbClust)
+library(rpart.plot)
+```
+
+## 1. Project Overview. 
+
+In this analysis, we explore the IMDb dataset to gain insights into the movie domain. By examining movie ratings, user preferences, and popular genres, we aim to understand audience tastes and develop personalized recommendation systems. Through techniques such as data visualization and clustering, we uncover patterns and trends that can help filmmakers, production houses, and streaming platforms engage audiences effectively. With a focus on the IMDb dataset's diverse facets, we gain valuable insights into user preferences, popular genres, and the potential for tailored movie recommendations.
+
+## 2. Data and Resources Used.
+
+1. Rating: This variable measures the rating given by users to a particular movie.
+  - Data Type: Numeric
+  - Range: The range of ratings is typically from 1 to 10, indicating the user's subjective evaluation of the movie.
+
+2. Genres: This variable represents the genres associated with each movie.
+  - Data Type: Categorical
+  - Levels: The variable has multiple levels corresponding to different movie genres such as action, comedy, drama, thriller,       etc. Each movie can have one or more genres assigned to it.
+
+3. User ID: This variable identifies individual users.
+  - Data Type: Categorical/Numeric
+  - Levels: Each user is assigned a unique ID, and the number of levels depends on the number of users in the dataset.
+
+4. Movie ID: This variable uniquely identifies each movie.
+  - Data Type: Categorical/Numeric
+  - Levels: Each movie is assigned a unique ID, and the number of levels depends on the number of movies in the dataset.
+  
+5. Average Rating: This variable represents the average rating given by each user.
+  - Data Type: Numeric
+  - Range: The range of average ratings varies depending on the users' rating patterns and the movies they have watched.
+
+6. Cluster: This variable indicates the cluster assignment for each user.
+  - Data Type: Categorical
+  - Levels: The number of levels depends on the number of clusters identified in the clustering analysis.
+
+Include plots and tables to show the ranges and distributions of the important variables- you don’t necessarily have to do this for all variables, just the important ones. Do not display a raw summary of the entire dataset (data dump). Mention any modifications to the data (cleaning). Links to data sources go in the References section at the end of the doc.
+
+## 3. Analysis.
+
+Read in the data from 2 file "movies.csv" and "ratings.csv. I assign it to the variable "movie_data" and "rating_data", respectively.
+
+```{r echo=FALSE}
+# Reading the data
+movie_data <- read.csv("movies.csv", stringsAsFactors = FALSE)
+rating_data <- read.csv("ratings.csv")
+# Creating table to view all the factors
+data.table(movie_data)
+data.table(rating_data)
+# Summary data
+summary(movie_data)
+summary(rating_data)
+head(movie_data)
+head(rating_data)
+```
+
+The provided R code performs data preprocessing tasks to create a binary genre matrix and compute user similarities in a movie recommendation system. This helps prepare the data for easy visualization and analysis. The code creates the binary genre matrix from the movie dataset and calculates user similarities based on movie ratings.
+
+```{r echo=FALSE}
+# Create a binary genre matrix
+movie_genre <- as.data.frame(movie_data$genres, stringsAsFactors = FALSE)
+movie_genre1 <- as.data.frame(tstrsplit(movie_genre[, 1], '[|]', type.convert = TRUE), stringsAsFactors = FALSE)
+colnames(movie_genre1) <- c(1:10)
+list_genre <- c("Action", "Adventure", "Animation", "Children", "Comedy",
+                "Crime", "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror",
+                "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western")
+genre_mat1 <- matrix(0, 10330, 18)
+genre_mat1[1, ] <- list_genre
+colnames(genre_mat1) <- list_genre
+for (index in 1:nrow(movie_genre1)) {
+  for (col in 1:ncol(movie_genre1)) {
+    gen_col <- which(genre_mat1[1, ] == movie_genre1[index, col])
+    genre_mat1[index + 1, gen_col] <- 1
+  }
+}
+genre_mat2 <- as.data.frame(genre_mat1[-1, ], stringsAsFactors = FALSE)
+for (col in 1:ncol(genre_mat2)) {
+  genre_mat2[, col] <- as.integer(genre_mat2[, col])
+}
+
+# Convert genre matrix to binary matrix
+genre_matrix <- as.matrix(genre_mat2)
+binary_matrix <- ifelse(genre_matrix > 0, 1, 0)
+
+# Compute similarities between users
+ratingMatrix <- dcast(rating_data, userId ~ movieId, value.var = "rating", na.rm = FALSE)
+ratingMatrix <- as.matrix(ratingMatrix[,-1])
+ratingMatrix <- as(ratingMatrix, "realRatingMatrix")
+ratingMatrix
+```
+
+The provided code computes similarities between users and movies based on a rating matrix using the "cosine" method. It visualizes the user similarity matrix to identify users with similar preferences. Additionally, it computes movie similarities, but there is a variable error. Correcting this, the code computes movie similarities and visualizes the movie similarity matrix, revealing patterns among movies. These insights are useful for movie recommendation systems and identifying related movies.
+
+```{r echo=FALSE}
+# Compute similarities between users
+similarity_mat <- similarity(ratingMatrix[1:4, ], method = "cosine", which = "users")
+image(as.matrix(similarity_mat), main = "User's Similarity")
+
+# Compute similarities between movies
+movie_similarity <- similarity(ratingMatrix[1:4, ], method = "cosine", which = "users")
+image(as.matrix(similarity_mat), main = "Movie Similarity")
+```
+
+The provided code snippet performs essential tasks on the rating data. It converts the ratingMatrix into a regular matrix format, identifies unique rating values, creates a table to count the occurrences of each rating value, and generates a histogram plot to visualize the distribution of movie ratings. These steps enable a comprehensive analysis of the data, providing insights into the range, frequency, and overall pattern of ratings.
+
+```{r echo=FALSE}
+# Convert ratingMatrix to a regular matrix
+rating_matrix <- as(ratingMatrix, "matrix")
+
+# Unique rating values
+rating_value <- unique(rating_matrix)
+
+# Number of movie ratings
+Rating_table <- table(rating_matrix)
+Rating_table
+
+# Plot a histogram of movie ratings
+ggplot(rating_data, aes(x = rating)) +
+  geom_histogram(binwidth = 0.5, fill = "red", color = "black") +
+  labs(x = "Rating", y = "Count") +
+  ggtitle("Distribution of Movie Ratings")
+```
+
+The provided code performs the following tasks:
+
+  - It calculates the number of views for each movie by counting the non-zero entries in each column of the ratingMatrix using      the colCounts() function.
+  - It creates a dataframe, table_of_view, which consists of two columns: "movies" (containing the movie IDs) and "views" (representing the number of views).
+  - The table_of_view dataframe is then sorted in descending order based on the number of views.
+  - The code loops through each row of the table_of_view dataframe and retrieves the corresponding movie title from the             movie_data   dataset based on the movie ID.
+  - The retrieved movie titles are stored in the "title" column of the table_of_view dataframe.
+Overall, this code prepares the data by determining the number of views for each movie and associating the movie titles with their respective IDs in order to facilitate further analysis and visualization.
+
+```{r echo=FALSE}
+# Preparing the data for the number of views for each movies
+view_of_movie <- colCounts(ratingMatrix) # Count number of views
+table_of_view <- data.frame(movies = names(view_of_movie), views = view_of_movie) # Create dataframe of views
+table_of_view <- table_of_view[order(table_of_view$views, decreasing = TRUE),] # Sort data by number of views
+table_of_view$title <- NA
+
+for (index in 1:10325) {
+  table_of_view[index, 3] <- as.character(subset(movie_data, movie_data$movieId == table_of_view[index, 1])$title)
+}
+```
+
+By using the data above, the provided code used the plot function to visulize the data for the most watched movie and the least watched movies.
+
+```{r echo=FALSE}
+# Plot the data for the TOP watched movies
+ggplot(table_of_view[1:6, ], aes(x = title, y = views)) +
+  geom_bar(stat = "identity", fill = 'orange') +
+  geom_text(aes(label = views), vjust = -0.3, size = 3.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("TOTAL VIEWS FOR MOST WATCHED MOVIES")
+
+# Plot the data for the least watched movies
+ggplot(table_of_view[10319:10325,], aes(x = title, y = views)) +
+  geom_bar(stat = "identity", fill = 'orange') +
+  geom_text(aes(label = views), vjust = -0.3, size = 3.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("TOTAL VIEWS FOR UNPOPULAR MOVIES")
+
+# Heat map for top user and movies
+minimum_movies <- quantile(rowCounts(movie_ratings), 0.98)
+minimum_users <- quantile(colCounts(movie_ratings), 0.98)
+image(movie_ratings[rowCounts(movie_ratings) > minimum_movies, 
+                    colCounts(movie_ratings) > minimum_users],
+      main = "HEAT MAP FOR TOP MOVIES AND USERS")
+```
+
+The code provided generates a bar plot to visualize the frequency of movie genres. It creates a data frame, genre_data, containing the genre names and their corresponding frequencies. The data frame is then sorted in descending order based on the genre frequencies. The plot function is used to create the bar plot, allowing for a visual representation of the frequency distribution of movie genres. This visualization provides insights into the prevalence of different genres in the dataset.
+
+```{r echo=FALSE}
+genre_counts <- colSums(genre_mat2)
+
+# Create a data frame for plotting
+genre_data <- data.frame(genre = names(genre_counts), count = genre_counts)
+
+# Sort the data frame by count in descending order
+genre_data <- genre_data[order(genre_data$count, decreasing = TRUE), ]
+
+# Plot the bar plot
+ggplot(genre_data, aes(x = genre, y = count)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Genre", y = "Count") +
+  ggtitle("Frequency of Movie Genres")
+```
+
+The code performs data preparation tasks including filtering the ratingMatrix to include movies and users with a sufficient number of ratings, calculating the average rating for each user, and creating a data frame for visualization. These steps ensure that the dataset used for analysis and visualization includes significant ratings and facilitates further analysis.
+
+```{r echo=FALSE}
+# Data preparation
+movie_ratings <- ratingMatrix[rowCounts(ratingMatrix) > 50, colCounts(ratingMatrix) > 50]
+
+# Calculate the average rating for each user
+user_avg_ratings <- rowMeans(rating_matrix, na.rm = TRUE)
+
+# Create a data frame for plotting
+user_ratings <- data.frame(user = 1:length(user_avg_ratings), avg_rating = user_avg_ratings)
+```
+
+The code provided includes two visualizations that facilitate the analysis of average ratings per user:
+  - The first visualization uses a histogram to represent the distribution of average ratings.This histogram provides an            overview of the distribution of average ratings among the users, allowing for insights into the central tendency and            variability of ratings.
+  - The second visualization is a scatter plot that shows the average rating for each user. This scatter plot helps identify any     patterns or trends in the average ratings across different users, providing insights into user preferences and behavior.
+
+```{r echo=FALSE}
+# Average rating per user "VISUALIZATION"
+average_ratings <- rowMeans(movie_ratings)
+qplot(average_ratings, fill = I("orange"), col = I("black"), bins = 30) +
+  ggtitle("AVERAGE RATING PER USER")
+
+# Plot the scatter plot
+ggplot(user_ratings, aes(x = user, y = avg_rating)) +
+  geom_point(color = "red") +
+  labs(x = "User ID", y = "Average Rating") +
+  ggtitle("Average Movie Ratings by User")
+```
+
+The provided code snippet performs cluster analysis on movie ratings data, including visualizations and analyses. It determines the optimal number of clusters using NbClust, conducts k-means clustering, trains a Decision Tree model, and visualizes the results. The clustered data is plotted as a scatter plot, and the distribution of clusters is shown in a bar plot. Average ratings for each cluster are computed and visualized. These analyses offer insights into the clustering of movie ratings, revealing distinct patterns within the data.
+
+```{r echo=FALSE}
+suppressWarnings({
+# Perform cluster analysis using NbClust
+set.seed(123)
+
+# Determine the optimal number of clusters using NbClust
+nb_results <- NbClust(user_ratings$avg_rating, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans")
+
+# Perform K-means clustering
+k <- 5  # Set the desired number of clusters
+kmeans_clusters <- kmeans(user_ratings$avg_rating, centers = k)
+
+# Add cluster labels to the movie ratings data
+movie_ratings_clustered <- cbind(user_ratings, cluster = kmeans_clusters$cluster)
+
+# Train a Decision Tree model
+tree_model <- rpart(cluster ~ avg_rating, data = movie_ratings_clustered)
+
+# Visualize the Decision Tree
+rpart.plot(tree_model, box.palette = "RdBu", shadow.col = "gray", nn = TRUE)
+
+# Print the results
+cat("The optimal number of clusters is", nb_results$Best.nc[1], "according to the", nb_results$Best.index[1], "criterion.")
+})
+```
+
+```{r echo=FALSE}
+# Plot the clusters
+ggplot(movie_ratings_clustered, aes(x = user, y = avg_rating)) +
+  geom_point(aes(color = factor(cluster)), size = 3) +
+  labs(x = "User ID", y = "Average Rating", color = "Cluster") +
+  ggtitle("K-means Clustering of Movie Ratings")
+```
+
+The provided code generates visualizations related to the cluster distribution and average ratings by cluster:
+
+The first plot represents the cluster distribution using a bar plot. Each bar represents a cluster, and the height of the bar indicates the count of users in that cluster.
+
+The second plot displays the average rating by cluster. It uses a bar plot where each bar represents a cluster, and the height of the bar represents the average rating for that cluster.
+
+These visualizations provide insights into the distribution of users among different clusters and the average rating patterns within each cluster.
+
+```{r echo=FALSE}
+# Plot the cluster distribution
+ggplot(movie_ratings_clustered, aes(x = factor(cluster))) +
+  geom_bar(fill = "blue") +
+  labs(x = "Cluster", y = "Count") +
+  ggtitle("Cluster Distribution")
+
+# Compute the average rating for each cluster
+cluster_avg_ratings <- aggregate(avg_rating ~ cluster, data = movie_ratings_clustered, FUN = mean)
+
+# Plot the average rating by cluster
+ggplot(cluster_avg_ratings, aes(x = factor(cluster), y = avg_rating)) +
+  geom_bar(stat = "identity", fill = "green") +
+  labs(x = "Cluster", y = "Average Rating") +
+  ggtitle("Average Rating by Cluster")
+```
+
+Finally, We are creating the recommendation system to help user find the most popular movies to watch.
+  - The code implements a collaborative filtering system for movie recommendations. It divides the data into training and           testing sets, creates a recommendation model using the "IBCF" method, and generates recommendations for users in the testing     data. The system uses the similarity matrix to determine item similarities and provides personalized movie recommendations      based on user ratings. Visualizations are included to display the model's heatmap and the distribution of the number of         recommended items. Overall, the code enables the analysis and generation of movie recommendations using collaborative           filtering techniques.
+
+```{r echo=FALSE}
+# Collaborative filtering system
+sampled_data <- sample(x = c(TRUE, FALSE),
+                      size = nrow(movie_ratings),
+                      replace = TRUE,
+                      prob = c(0.8, 0.2))
+training_data <- movie_ratings[sampled_data, ]
+testing_data <- movie_ratings[!sampled_data, ]
+
+# Creating recommendation system
+rec_system <- recommenderRegistry$get_entries(dataType ="realRatingMatrix")
+rec_system$IBCF_realRatingMatrix$parameters
+rec_model <- Recommender(data = training_data,
+                              method = "IBCF",
+                              parameter = list(k = 30))
+rec_model
+
+class(rec_model)
+
+# Data science recommendation model
+information <- getModel(rec_model)
+class(information$sim)
+dim(information$sim)
+top_items <- 20
+image(information$sim[1:top_items, 1:top_items],
+      main = "HEATMAP OF THE MODEL")
+
+# Number of recommendation to users
+top_recommendations <- 15
+prediction_module <- predict(object = rec_model,
+                                     newdata = testing_data,
+                                     n = top_recommendations)
+prediction_module
+
+# Recommendation for the first user
+user <- prediction_module@items[[1]] 
+movies_user <- prediction_module@itemLabels[user]
+movies_user1 <- movies_user
+for (index in 1:10){
+  movies_user1[index] <- as.character(subset(movie_data,
+                                             movie_data$movieId == movies_user[index])$title)
+}
+movies_user1
+# Matrix with the recommendations for each user
+rec_mat <- sapply(prediction_module@items,
+                                function(x){ as.integer(colnames(movie_ratings)[x]) }) 
+rec_mat[,1:4]
+
+# Distribution of the number of items for the IBCF
+num_item <- factor(table(rec_mat))
+qplot(num_item, fill=I("orange"), col=I("black")) + ggtitle("THE NUMBER OF ITEM FOR THE IBCF")
+
+# Recommendation for the first user
+user <- prediction_module@items[[1]] 
+movies_user <- prediction_module@itemLabels[user]
+movies_user1 <- movies_user
+for (index in 1:10){
+  movies_user1[index] <- as.character(subset(movie_data,
+                                             movie_data$movieId == movies_user[index])$title)
+}
+movies_user1
+# Matrix with the recommendations for each user
+rec_mat <- sapply(prediction_module@items,
+                                function(x){ as.integer(colnames(movie_ratings)[x]) }) 
+rec_mat[,1:4]
+
+# Distribution of the number of items for the IBCF
+num_item <- factor(table(rec_mat))
+qplot(num_item, fill=I("orange"), col=I("black")) + ggtitle("THE NUMBER OF ITEM FOR THE IBCF")
+
+sorted_item <- sort(num_item, decreasing = TRUE)
+top_items <- head(sorted_item, n = 387)
+table_top <- data.frame(as.integer(names(top_items)),
+                                   num_item)
+for(i in 1:4) {
+  table_top[i,1] <- as.character(subset(movie_data,
+                                        movie_data$movieId == table_top[i,1])$title)
+}
+colnames(table_top) <- c("MOVIE TITLE", "NO. OF ITEMS")
+head(table_top)
+
+```
+
+Adding a page break:
+
+\newpage
+
+## Summary and Conclusions.
+
+In this analysis, we conducted various tasks, including data preprocessing, visualization, clustering, and collaborative filtering, to delve into the movie dataset. The results unveiled intriguing insights into average movie ratings per user, user clustering based on ratings, and personalized movie recommendations. It is worth noting that the dataset's extensive size posed challenges in summarizing and analyzing the data comprehensively. Additionally, the presence of missing values could have influenced the accuracy of the findings. To enhance the movie recommendation system, integrating additional factors such as movie popularity would provide valuable insights and improve the accuracy and relevance of the recommendations.
+
+## References
+
+* https://www.analyticsvidhya.com/blog/2021/04/beginners-guide-to-clustering-in-r-program/#:~:text=Clustering%20in%20R%20refers%20to,KMeans%20model%20in%20this%20process.
+
+* https://www.guru99.com/r-decision-trees.html
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
