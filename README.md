@@ -19,4 +19,3 @@ MAIN IDEA:
 - Selecting useful data and normallizing and then binarizing the date
 - After retriving data from the dataset, the recommendation program will visualize the data into similarity data, top rated movies and heatmap for ratings.
 
-THIS IS JUST A FUN PROJECT THAT I LEARNED. HOPE YOU GUYS LIKE IT.....
