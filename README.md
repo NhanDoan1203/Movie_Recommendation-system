@@ -1,4 +1,4 @@
-# Movie_Recommendation-using-R-and-IMDB-dataset
+# Movie_Recommendation
 
 THE MAIN PURPOSE OF THIS PROJECT IS TO RECOMMEND THE BEST MOVIE FOR CUSTUMERS
 
